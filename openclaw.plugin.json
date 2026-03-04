@@ -1,0 +1,46 @@
+{
+  "id": "remote-agent",
+  "name": "远程代理",
+  "description": "远程设备管理插件，支持命令执行、系统监控、文件管理等功能",
+  "version": "1.0.0",
+  "channels": [],
+  "skills": [],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "port": {
+        "type": "number",
+        "default": 8765,
+        "description": "WebSocket 服务端口"
+      },
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "WebSocket 服务监听地址"
+      },
+      "agents": {
+        "type": "object",
+        "description": "设备ID到令牌的映射（如：{\"台式机\": \"token123\"}）",
+        "additionalProperties": {
+          "type": "string"
+        }
+      },
+      "allowedAgents": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "允许连接的设备白名单（为空则允许所有已配置设备）"
+      },
+      "unixSocket": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否启用 Unix Socket 实时通信"
+      },
+      "unixSocketPath": {
+        "type": "string",
+        "default": "/tmp/openclaw-remote-agent.sock",
+        "description": "Unix Socket 文件路径"
+      }
+    },
+    "required": ["agents"]
+  }
+}

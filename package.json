@@ -1,0 +1,24 @@
+{
+  "name": "@openclaw/remote-agent",
+  "version": "1.0.0",
+  "description": "OpenClaw 远程代理插件 - 提供远程设备管理能力，支持多设备独立 Token 认证、命令推送和实时状态监控",
+  "type": "module",
+  "main": "index.ts",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "keywords": [
+    "openclaw",
+    "remote-agent",
+    "remote-control",
+    "device-management"
+  ],
+  "author": "OpenClaw",
+  "license": "MIT",
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.48",
+    "ws": "^8.19.0"
+  }
+}
