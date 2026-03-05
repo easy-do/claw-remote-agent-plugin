@@ -28,9 +28,7 @@ Remote Agent 是一个 OpenClaw 服务端插件，配合 `claw-agent-client-rs` 
 
 - 🖥️ **远程执行命令** - 在远程设备上执行 Shell 命令
 - 📊 **获取系统信息** - 查看远程设备的主机名、操作系统、CPU、内存等
-- 📁 **文件管理** - 列出远程设备的文件和目录
-- 🌐 **浏览器控制** - 在远程设备上打开网页
-- 📱 **多设备管理** - 同时管理多台远程设备
+- 📱 **多设备管理** - 查看所有设备在线状态、管理设备连接
 
 ### 适用场景
 
@@ -105,9 +103,9 @@ Remote Agent 是一个 OpenClaw 服务端插件，配合 `claw-agent-client-rs` 
 | 工具名称 | 中文标签 | 功能描述 |
 |----------|----------|----------|
 | `remote_agent.generate_token` | 生成服务器令牌 | 生成服务器使用的认证 Token |
-| `remote_agent.server_status` | 服务器状态 | 查看服务器运行状态 |
-| `remote_agent.send_command` | 发送命令 | 向指定设备发送任意命令 |
-| `remote_agent.shell_exec` | 执行Shell命令 | 在远程设备上执行命令 |
+| `remote_agent.list_agents` | 列出客户端列表 | 获取所有已注册代理的列表及实时在线状态 |
+| `remote_agent.server_status` | 插件状态 | 获取插件运行状态统计（注册数量、在线数量） |
+| `remote_agent.shell_exec` | 执行Shell命令 | 在远程设备上执行Shell命令 |
 | `remote_agent.get_system_info` | 获取系统信息 | 获取设备的系统信息 |
 | `remote_agent.disconnect_agent` | 断开代理连接 | 强制断开指定设备的连接 |
 
@@ -119,7 +117,7 @@ Remote Agent 是一个 OpenClaw 服务端插件，配合 `claw-agent-client-rs` 
 | `shell.execute` | 执行 Shell 命令 | `command`, `timeout` |
 | `process.list` | 列出进程 | 无 |
 | `file.list` | 列出文件 | `path` |
-| `browser.open` | 打开浏览器 | `url` |
+| `software.list` | 列出已安装软件 | 无 |
 
 ---
 
@@ -274,9 +272,41 @@ auth:
 }
 ```
 
-### 服务器状态
+### 列出客户端列表
 
-查看服务器运行状态：
+获取所有已注册代理的列表及实时在线状态：
+
+```
+调用: remote_agent.list_agents
+参数: {}
+
+返回:
+{
+  "agents": [
+    {
+      "agent_id": "台式机",
+      "status": "online",
+      "sessions": 1,
+      "lastConnected": "2026-03-05T10:00:00.000Z",
+      "registeredAt": "2026-03-05T09:00:00.000Z",
+      "sessionId": "xxx-xxx-xxx"
+    },
+    {
+      "agent_id": "笔记本",
+      "status": "offline",
+      "sessions": 0,
+      "lastConnected": "2026-03-05T08:00:00.000Z",
+      "registeredAt": "2026-03-05T07:30:00.000Z"
+    }
+  ],
+  "total_registered": 2,
+  "total_online": 1
+}
+```
+
+### 插件运行状态
+
+插件运行状态：
 
 ```
 调用: remote_agent.server_status
@@ -287,8 +317,8 @@ auth:
   "status": "运行中",
   "port": 8765,
   "host": "0.0.0.0",
-  "configured_agents": 2,
-  "connected_agents": 1
+  "total_registered": 2,
+  "total_online": 1
 }
 ```
 

@@ -59,12 +59,40 @@ export function registerRemoteAgentTools(api: OpenClawPluginApi, config: AgentCo
     { name: "remote_agent.generate_token" }
   );
 
+  // Tool: List all agents with real-time status
+  api.registerTool(
+    () => ({
+      name: "remote_agent.list_agents",
+      label: "列出代理列表",
+      description: "获取所有已注册代理的列表及实时在线状态",
+      parameters: Type.Object({}),
+      async execute() {
+        const server = getServerInstance();
+        if (!server) {
+          return json({
+            error: "服务器未运行",
+            agents: [],
+          });
+        }
+        
+        const registeredAgents = server.getRegisteredAgents();
+        
+        return json({
+          agents: registeredAgents,
+          total_registered: registeredAgents.length,
+          total_online: registeredAgents.filter(a => a.status === "online").length,
+        });
+      },
+    }),
+    { name: "remote_agent.list_agents" }
+  );
+
   // Tool: Get server status
   api.registerTool(
     () => ({
       name: "remote_agent.server_status",
       label: "服务器状态",
-      description: "获取远程代理服务器的运行状态",
+      description: "获取远程代理服务器的运行状态统计",
       parameters: Type.Object({}),
       async execute() {
         const server = getServerInstance();
@@ -76,74 +104,19 @@ export function registerRemoteAgentTools(api: OpenClawPluginApi, config: AgentCo
           });
         }
         
-        const configuredAgents = server.getConfiguredAgents();
-        const connectedAgents = server.getConnectedAgents();
-        
-        const agents = connectedAgents.map(agent => ({
-          agent_id: agent.agent_id,
-          sessions: agent.sessions,
-          status: agent.status,
-        }));
+        const registeredAgents = server.getRegisteredAgents();
+        const onlineCount = registeredAgents.filter(a => a.status === "online").length;
         
         return json({
           status: "运行中",
           port: config.port || 8765,
           host: config.host || "0.0.0.0",
-          registered_agents: configuredAgents.length,
-          connected_agents: server.getSessionCount(),
-          agents: agents,
+          total_registered: registeredAgents.length,
+          total_online: onlineCount,
         });
       },
     }),
     { name: "remote_agent.server_status" }
-  );
-
-  // Tool: Send command to specific agent
-  api.registerTool(
-    () => ({
-      name: "remote_agent.send_command",
-      label: "发送命令",
-      description: "向指定的远程代理发送命令",
-      parameters: Type.Object({
-        agentId: Type.String({ description: "目标代理ID（设备名称）" }),
-        action: Type.String({ description: "命令类型（如：shell.execute, system.info, browser.open）" }),
-        params: Type.Optional(Type.Record(Type.String(), Type.Any(), { 
-          description: "命令参数",
-          default: {} 
-        })),
-        timeout: Type.Optional(Type.Number({ 
-          description: "超时时间（毫秒）",
-          default: 30000 
-        })),
-      }),
-      async execute(_toolCallId, params: { agentId: string; action: string; params?: Record<string, unknown>; timeout?: number }) {
-        const server = getServerInstance();
-        if (!server) {
-          return json({ error: "服务器未运行" });
-        }
-        
-        try {
-          const result = await server.sendCommand(
-            params.agentId, 
-            params.action, 
-            params.params || {}, 
-            params.timeout || 30000
-          );
-          return json({
-            agent_id: params.agentId,
-            action: params.action,
-            result: result,
-          });
-        } catch (e) {
-          return json({
-            error: e instanceof Error ? e.message : String(e),
-            agent_id: params.agentId,
-            action: params.action,
-          });
-        }
-      },
-    }),
-    { name: "remote_agent.send_command" }
   );
 
   // Tool: Execute shell command on agent

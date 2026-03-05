@@ -228,6 +228,7 @@ class RemoteAgentServer extends EventEmitter {
           if (idx >= 0) agentSessions.splice(idx, 1);
           if (agentSessions.length === 0) {
             this.agentSessions.delete(session.agentId);
+            this.updateClientLastConnected(session.agentId);
             this.log("Agent " + session.agentId + " fully disconnected");
             
             broadcastToUnixSocketClients({
@@ -290,6 +291,18 @@ class RemoteAgentServer extends EventEmitter {
     
     this.config.pluginData.clients[agentId] = clientInfo;
     this.savePluginData();
+  }
+
+  private updateClientLastConnected(agentId: string): void {
+    if (!this.config.pluginData || !this.config.pluginData.clients) {
+      return;
+    }
+    
+    const clientInfo = this.config.pluginData.clients[agentId];
+    if (clientInfo) {
+      clientInfo.lastConnectedAt = new Date().toISOString();
+      this.savePluginData();
+    }
   }
 
   private async handleAuth(request: AuthRequest): Promise<AuthResponse> {
@@ -511,18 +524,41 @@ class RemoteAgentServer extends EventEmitter {
     return results;
   }
 
-  getConfiguredAgents(): Array<{ agent_id: string; connected: boolean; lastConnected?: string; registeredAt?: string }> {
-    const agents: Array<{ agent_id: string; connected: boolean; lastConnected?: string; registeredAt?: string }> = [];
+  getRegisteredAgents(): Array<{
+    agent_id: string;
+    status: string;
+    sessions: number;
+    lastConnected?: string;
+    registeredAt?: string;
+    sessionId?: string;
+  }> {
+    const agents: Array<{
+      agent_id: string;
+      status: string;
+      sessions: number;
+      lastConnected?: string;
+      registeredAt?: string;
+      sessionId?: string;
+    }> = [];
     
     const clients = this.config.pluginData?.clients || {};
-    for (const agentId of Object.keys(clients)) {
-      const sessions = this.agentSessions.get(agentId);
+    const allAgentIds = new Set([
+      ...Object.keys(clients),
+      ...this.agentSessions.keys()
+    ]);
+    
+    for (const agentId of allAgentIds) {
+      const sessions = this.agentSessions.get(agentId) || [];
       const clientInfo = clients[agentId] || {};
+      const connectedSessions = sessions.filter(s => s.status === "connected");
+      
       agents.push({
         agent_id: agentId,
-        connected: !!sessions && sessions.length > 0 && sessions.some(s => s.status === "connected"),
+        status: connectedSessions.length > 0 ? "online" : "offline",
+        sessions: sessions.length,
         lastConnected: clientInfo.lastConnectedAt,
         registeredAt: clientInfo.registeredAt,
+        sessionId: connectedSessions.length > 0 ? connectedSessions[0].sessionId : undefined,
       });
     }
     
