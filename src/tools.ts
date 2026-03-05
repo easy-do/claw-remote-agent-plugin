@@ -76,12 +76,22 @@ export function registerRemoteAgentTools(api: OpenClawPluginApi, config: AgentCo
           });
         }
         
+        const configuredAgents = server.getConfiguredAgents();
+        const connectedAgents = server.getConnectedAgents();
+        
+        const agents = connectedAgents.map(agent => ({
+          agent_id: agent.agent_id,
+          sessions: agent.sessions,
+          status: agent.status,
+        }));
+        
         return json({
           status: "运行中",
           port: config.port || 8765,
           host: config.host || "0.0.0.0",
-          configured_agents: server?.getConfiguredAgents().length || 0,
+          registered_agents: configuredAgents.length,
           connected_agents: server.getSessionCount(),
+          agents: agents,
         });
       },
     }),

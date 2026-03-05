@@ -170,11 +170,13 @@ class RemoteAgentServer extends EventEmitter {
                 status: "connected",
               };
               this.sessions.set(authResult.session_id!, session);
+              this.log("[DEBUG] Session added, sessions.size=" + this.sessions.size);
               
               if (!this.agentSessions.has(message.agent_id)) {
                 this.agentSessions.set(message.agent_id, []);
               }
               this.agentSessions.get(message.agent_id)!.push(session);
+              this.log("[DEBUG] Agent session added for " + message.agent_id + ", agentSessions.size=" + this.agentSessions.size);
               
               this.log("[DEBUG] AgentSessions after auth: " + JSON.stringify(
                 Array.from(this.agentSessions.entries()).map(([k, v]) => [k, v.length])
@@ -528,16 +530,19 @@ class RemoteAgentServer extends EventEmitter {
   }
 
   getConnectedAgents(): Array<{ agent_id: string; sessions: number; status: string }> {
+    this.log("[DEBUG] getConnectedAgents called, agentSessions.size=" + this.agentSessions.size);
     const agents: Array<{ agent_id: string; sessions: number; status: string }> = [];
     
     for (const [agentId, sessions] of this.agentSessions.entries()) {
       const connectedSessions = sessions.filter(s => s.status === "connected").length;
+      this.log("[DEBUG] agentId=" + agentId + ", sessions.length=" + sessions.length + ", connected=" + connectedSessions);
       agents.push({
         agent_id: agentId,
         sessions: sessions.length,
         status: connectedSessions > 0 ? "online" : "offline",
       });
     }
+    this.log("[DEBUG] getConnectedAgents returning " + agents.length + " agents");
     
     return agents;
   }
@@ -557,6 +562,7 @@ class RemoteAgentServer extends EventEmitter {
   }
 
   getSessionCount(): number {
+    this.log("[DEBUG] getSessionCount called, sessions.size=" + this.sessions.size);
     return this.sessions.size;
   }
 }
