@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getServerInstance } from './server.js';
 
-const DEFAULT_SOCKET_PATH = '/tmp/openclaw-remote-agent.sock';
+const DEFAULT_SOCKET_PATH = '/tmp/claw-remote-agent-plugin.sock';
 
 interface UnixSocketServer {
   server: net.Server;
@@ -23,11 +23,11 @@ export function startUnixSocketServer(socketPath: string = DEFAULT_SOCKET_PATH):
       fs.unlinkSync(socketPath);
     }
   } catch (e) {
-    console.log('[remote-agent] Failed to remove existing socket:', (e as Error).message);
+    console.log('[claw-remote-agent-plugin] Failed to remove existing socket:', (e as Error).message);
   }
 
   const server = net.createServer((socket) => {
-    console.log('[remote-agent] Unix Socket client connected');
+    console.log('[claw-remote-agent-plugin] Unix Socket client connected');
     
     if (unixSocketServer) {
       unixSocketServer.clients.add(socket);
@@ -36,7 +36,7 @@ export function startUnixSocketServer(socketPath: string = DEFAULT_SOCKET_PATH):
     // Send welcome message
     socket.write(JSON.stringify({
       type: 'welcome',
-      message: 'Connected to remote-agent Unix Socket',
+      message: 'Connected to claw-remote-agent-plugin Unix Socket',
       timestamp: new Date().toISOString()
     }) + '\n');
 
@@ -46,15 +46,15 @@ export function startUnixSocketServer(socketPath: string = DEFAULT_SOCKET_PATH):
         const message = data.toString().trim();
         const request = JSON.parse(message);
         
-        console.log('[remote-agent] Unix Socket request:', request.type);
-        console.log('[remote-agent] Unix Socket request details:', JSON.stringify(request));
+        console.log('[claw-remote-agent-plugin] Unix Socket request:', request.type);
+        console.log('[claw-remote-agent-plugin] Unix Socket request details:', JSON.stringify(request));
         
         const response = await handleUnixSocketRequest(request);
         
-        console.log('[remote-agent] Unix Socket response:', JSON.stringify(response).slice(0, 200));
+        console.log('[claw-remote-agent-plugin] Unix Socket response:', JSON.stringify(response).slice(0, 200));
         socket.write(JSON.stringify(response) + '\n');
       } catch (e) {
-        console.error('[remote-agent] Unix Socket error:', (e as Error).message);
+        console.error('[claw-remote-agent-plugin] Unix Socket error:', (e as Error).message);
         socket.write(JSON.stringify({
           type: 'error',
           error: (e as Error).message
@@ -63,28 +63,28 @@ export function startUnixSocketServer(socketPath: string = DEFAULT_SOCKET_PATH):
     });
 
     socket.on('close', () => {
-      console.log('[remote-agent] Unix Socket client disconnected');
+      console.log('[claw-remote-agent-plugin] Unix Socket client disconnected');
       if (unixSocketServer) {
         unixSocketServer.clients.delete(socket);
       }
     });
 
     socket.on('error', (err) => {
-      console.error('[remote-agent] Unix Socket error:', err.message);
+      console.error('[claw-remote-agent-plugin] Unix Socket error:', err.message);
     });
   });
 
   server.on('error', (err) => {
-    console.error('[remote-agent] Unix Socket server error:', err.message);
+    console.error('[claw-remote-agent-plugin] Unix Socket server error:', err.message);
   });
 
   server.on('listening', () => {
-    console.log('[remote-agent] Unix Socket server listening on', socketPath);
+    console.log('[claw-remote-agent-plugin] Unix Socket server listening on', socketPath);
     // Set socket permissions
     try {
       fs.chmodSync(socketPath, 0o666);
     } catch (e) {
-      console.log('[remote-agent] Failed to set socket permissions:', (e as Error).message);
+      console.log('[claw-remote-agent-plugin] Failed to set socket permissions:', (e as Error).message);
     }
   });
 
@@ -103,7 +103,7 @@ export function startUnixSocketServer(socketPath: string = DEFAULT_SOCKET_PATH):
 export function stopUnixSocketServer(): void {
   if (unixSocketServer) {
     unixSocketServer.server.close(() => {
-      console.log('[remote-agent] Unix Socket server stopped');
+      console.log('[claw-remote-agent-plugin] Unix Socket server stopped');
     });
     
     // Close all client connections
@@ -118,7 +118,7 @@ export function stopUnixSocketServer(): void {
         fs.unlinkSync(unixSocketServer.socketPath);
       }
     } catch (e) {
-      console.log('[remote-agent] Failed to remove socket file:', (e as Error).message);
+      console.log('[claw-remote-agent-plugin] Failed to remove socket file:', (e as Error).message);
     }
     
     unixSocketServer = null;
@@ -198,7 +198,7 @@ async function handleUnixSocketRequest(request: {
         };
       }
       
-      console.log('[remote-agent] Unix Socket sending command to', request.agentId, ':', request.params.command);
+      console.log('[claw-remote-agent-plugin] Unix Socket sending command to', request.agentId, ':', request.params.command);
       
       try {
         const result = await server.sendCommand(
@@ -207,7 +207,7 @@ async function handleUnixSocketRequest(request: {
           request.params,
           request.timeout || 30000
         );
-        console.log('[remote-agent] Unix Socket command result:', result);
+        console.log('[claw-remote-agent-plugin] Unix Socket command result:', result);
         
         return {
           type: 'command_result',
@@ -288,7 +288,7 @@ export function broadcastToUnixSocketClients(event: Record<string, unknown>): vo
         client.write(message);
       }
     } catch (e) {
-      console.log('[remote-agent] Failed to broadcast to client:', (e as Error).message);
+      console.log('[claw-remote-agent-plugin] Failed to broadcast to client:', (e as Error).message);
     }
   }
 }

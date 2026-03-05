@@ -3,8 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const plugin = {
-  id: "remote-agent",
-  name: "Remote Agent",
+  id: "claw-remote-agent-plugin",
+  name: "claw-remote-agent-plugin",
   description: "Remote agent server with independent token per agent and Unix Socket support",
   configSchema: {
     type: "object",
@@ -12,14 +12,14 @@ const plugin = {
       port: { type: "number", default: 8765 },
       agents: { type: "object", additionalProperties: { type: "string" } },
       unixSocket: { type: "boolean", default: true },
-      unixSocketPath: { type: "string", default: "/tmp/openclaw-remote-agent.sock" },
+      unixSocketPath: { type: "string", default: "/tmp/claw-remote-agent-plugin.sock" },
     },
     required: ["agents"],
   },
   register(api: OpenClawPluginApi) {
     const rt = api.runtime as any;
     const log = (msg: string) => {
-      try { rt.logger?.info?.("[remote-agent] " + msg); } catch(e) { console.log("[remote-agent] " + msg); }
+      try { rt.logger?.info?.("[claw-remote-agent-plugin] " + msg); } catch(e) { console.log("[claw-remote-agent-plugin] " + msg); }
     };
     
     // Read config directly from openclaw.json
@@ -29,13 +29,13 @@ const plugin = {
       port: 8765, 
       host: "0.0.0.0",
       unixSocket: true,
-      unixSocketPath: "/tmp/openclaw-remote-agent.sock"
+      unixSocketPath: "/tmp/claw-remote-agent-plugin.sock"
     };
     
     try {
       const content = fs.readFileSync(configPath, 'utf-8');
       const openclawConfig = JSON.parse(content);
-      const pluginConfig = openclawConfig?.plugins?.entries?.['remote-agent']?.config;
+      const pluginConfig = openclawConfig?.plugins?.entries?.['claw-remote-agent-plugin']?.config;
       
       if (pluginConfig?.agents && typeof pluginConfig.agents === 'object') {
         config.agents = pluginConfig.agents;
@@ -48,11 +48,11 @@ const plugin = {
       log("Config loaded from " + configPath);
     } catch (e) {
       log("Failed to read config: " + (e as Error).message);
-      throw new Error("remote-agent: Cannot read config file");
+      throw new Error("claw-remote-agent-plugin: Cannot read config file");
     }
     
     if (!config.agents || Object.keys(config.agents).length === 0) {
-      throw new Error("remote-agent: agents config is required and must have at least one agent");
+      throw new Error("claw-remote-agent-plugin: agents config is required and must have at least one agent");
     }
     
     log("Loaded agents: " + Object.keys(config.agents).join(", "));

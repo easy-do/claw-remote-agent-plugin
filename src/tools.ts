@@ -14,12 +14,12 @@ function safeLog(api: OpenClawPluginApi, msg: string) {
   try {
     const logger = (api.runtime as any).logger;
     if (logger && typeof logger.info === "function") {
-      logger.info("[remote-agent] " + msg);
+      logger.info("[claw-remote-agent-plugin] " + msg);
     } else {
-      console.log("[remote-agent] " + msg);
+      console.log("[claw-remote-agent-plugin] " + msg);
     }
   } catch (e) {
-    console.log("[remote-agent] " + msg);
+    console.log("[claw-remote-agent-plugin] " + msg);
   }
 }
 

@@ -128,11 +128,11 @@ Remote Agent 是一个 OpenClaw 服务端插件，配合 `claw-agent-client-rs` 
 
 ```bash
 # 方法1：从工作目录安装
-cd /path/to/remote-agent-plugin
+cd /path/to/claw-remote-agent-plugin
 openclaw plugins install .
 
 # 方法2：直接复制到扩展目录
-cp -r ./remote-agent-plugin ~/.openclaw/extensions/remote-agent
+cp -r ./claw-remote-agent-plugin ~/.openclaw/extensions/claw-remote-agent-plugin
 ```
 
 ### 步骤二：配置插件
@@ -143,7 +143,7 @@ cp -r ./remote-agent-plugin ~/.openclaw/extensions/remote-agent
 {
   "plugins": {
     "entries": {
-      "remote-agent": {
+      "claw-remote-agent-plugin": {
         "enabled": true,
         "config": {
           "port": 8765,
@@ -172,7 +172,7 @@ openclaw gateway restart
 openclaw status
 
 # 查看日志
-tail -f /tmp/openclaw/openclaw-*.log | grep remote-agent
+tail -f /tmp/openclaw/openclaw-*.log | grep claw-remote-agent-plugin
 ```
 
 ### 步骤五：部署客户端
@@ -207,7 +207,7 @@ cp config/agent.yml.example config/agent.yml
 | `port` | number | 否 | `8765` | WebSocket 服务端口 |
 | `host` | string | 否 | `"0.0.0.0"` | 监听地址 |
 | `unixSocket` | boolean | 否 | `true` | 是否启用 Unix Socket |
-| `unixSocketPath` | string | 否 | `/tmp/openclaw-remote-agent.sock` | Unix Socket 路径 |
+| `unixSocketPath` | string | 否 | `/tmp/claw-remote-agent-plugin.sock` | Unix Socket 路径 |
 | `allowedAgents` | array | 否 | `[]` | 允许连接的设备白名单 |
 
 ### 客户端配置 (agent.yml)
@@ -393,7 +393,7 @@ async fn execute_command(action: &str, params: Value) -> Result<Value> {
 
 服务端 → 客户端：
 ```json
-{"type": "welcome", "version": "0.1.0", "platform": "openclaw-remote-agent"}
+{"type": "welcome", "version": "0.1.0", "platform": "claw-remote-agent-plugin"}
 ```
 
 #### 2. 认证
@@ -431,19 +431,19 @@ async fn execute_command(action: &str, params: Value) -> Result<Value> {
 
 ### Unix Socket 接口
 
-**连接地址**：`/tmp/openclaw-remote-agent.sock`
+**连接地址**：`/tmp/claw-remote-agent-plugin.sock`
 
 **请求示例**：
 
 ```bash
 # 列出设备
-echo '{"type": "list_agents"}' | nc -U /tmp/openclaw-remote-agent.sock
+echo '{"type": "list_agents"}' | nc -U /tmp/claw-remote-agent-plugin.sock
 
 # 执行命令
-echo '{"type": "shell_exec", "agentId": "台式机", "params": {"command": "whoami"}}' | nc -U /tmp/openclaw-remote-agent.sock
+echo '{"type": "shell_exec", "agentId": "台式机", "params": {"command": "whoami"}}' | nc -U /tmp/claw-remote-agent-plugin.sock
 
 # 订阅事件
-echo '{"type": "subscribe", "subscribe": true}' | nc -U /tmp/openclaw-remote-agent.sock
+echo '{"type": "subscribe", "subscribe": true}' | nc -U /tmp/claw-remote-agent-plugin.sock
 ```
 
 ---
@@ -466,7 +466,7 @@ sudo ufw status
 sudo ufw allow 8765/tcp
 
 # 检查服务端日志
-tail -f /tmp/openclaw/openclaw-*.log | grep remote-agent
+tail -f /tmp/openclaw/openclaw-*.log | grep claw-remote-agent-plugin
 ```
 
 #### 2. 认证失败
@@ -502,10 +502,10 @@ curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" -H "Sec-WebSocket-Ke
 **排查步骤**：
 ```bash
 # 检查 Socket 文件
-ls -la /tmp/openclaw-remote-agent.sock
+ls -la /tmp/claw-remote-agent-plugin.sock
 
 # 检查权限
-chmod 666 /tmp/openclaw-remote-agent.sock
+chmod 666 /tmp/claw-remote-agent-plugin.sock
 
 # 重启插件
 openclaw gateway restart

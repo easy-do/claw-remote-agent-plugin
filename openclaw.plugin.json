@@ -1,6 +1,6 @@
 {
-  "id": "remote-agent",
-  "name": "远程代理",
+  "id": "claw-remote-agent-plugin",
+  "name": "远程客户端代理插件",
   "description": "远程设备管理插件，支持命令执行、系统监控、文件管理等功能",
   "version": "1.0.0",
   "channels": [],
@@ -37,7 +37,7 @@
       },
       "unixSocketPath": {
         "type": "string",
-        "default": "/tmp/openclaw-remote-agent.sock",
+        "default": "/tmp/claw-remote-agent-plugin.sock",
         "description": "Unix Socket 文件路径"
       }
     },
