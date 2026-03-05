@@ -8,8 +8,11 @@ interface AgentConfig {
   enabled?: boolean;
   port?: number;
   host?: string;
-  agents: Record<string, string>;
-  allowedAgents?: string[];
+  token: string;
+  pluginDataPath?: string;
+  pluginData?: {
+    clients: Record<string, any>;
+  };
 }
 
 interface CommandRequest {
@@ -110,7 +113,7 @@ class RemoteAgentServer extends EventEmitter {
     });
 
     this.log("Server started on ws://" + host + ":" + port + "/agent/ws");
-    this.log("Loaded " + Object.keys(this.config.agents).length + " agent(s)");
+    this.log("Server token configured: ***" + this.config.token.slice(-4));
   }
 
   stop(): void {
@@ -254,44 +257,76 @@ class RemoteAgentServer extends EventEmitter {
     ws.on("close", () => clearInterval(pingInterval));
   }
 
-  private verifyToken(agentId: string, tokenStr: string): boolean {
-    const expectedToken = this.config.agents[agentId];
-    if (!expectedToken) {
-      return false;
+  private verifyToken(tokenStr: string): boolean {
+    return tokenStr === this.config.token;
+  }
+
+  private savePluginData(): void {
+    if (!this.config.pluginDataPath || !this.config.pluginData) return;
+    try {
+      const fs = require('fs');
+      const data = JSON.stringify(this.config.pluginData, null, 2);
+      fs.writeFileSync(this.config.pluginDataPath, data, 'utf-8');
+      this.log("Plugin data saved");
+    } catch (e) {
+      this.log("Failed to save plugin data: " + (e as Error).message);
     }
-    return tokenStr === expectedToken;
+  }
+
+  private registerClient(agentId: string, sessionId: string): void {
+    if (!this.config.pluginData) {
+      this.config.pluginData = { clients: {} };
+    }
+    if (!this.config.pluginData.clients) {
+      this.config.pluginData.clients = {};
+    }
+    
+    const clientInfo = this.config.pluginData.clients[agentId] || {};
+    clientInfo.lastSessionId = sessionId;
+    clientInfo.lastConnectedAt = new Date().toISOString();
+    clientInfo.registeredAt = clientInfo.registeredAt || new Date().toISOString();
+    
+    this.config.pluginData.clients[agentId] = clientInfo;
+    this.savePluginData();
   }
 
   private async handleAuth(request: AuthRequest): Promise<AuthResponse> {
-    if (!this.verifyToken(request.agent_id, request.token)) {
-      if (!this.config.agents[request.agent_id]) {
-        return {
-          type: "auth_response",
-          success: false,
-          message: "Agent '" + request.agent_id + "' is not configured",
-        };
-      }
+    if (!this.verifyToken(request.token)) {
       return {
         type: "auth_response",
         success: false,
-        message: "Invalid token for agent '" + request.agent_id + "'",
+        message: "Invalid token",
       };
     }
 
-    if (this.config.allowedAgents && this.config.allowedAgents.length > 0) {
-      if (!this.config.allowedAgents.includes(request.agent_id)) {
+    const agentId = request.agent_id;
+    if (!agentId || agentId.trim() === "") {
+      return {
+        type: "auth_response",
+        success: false,
+        message: "agent_id is required",
+      };
+    }
+
+    if (this.agentSessions.has(agentId)) {
+      const existingSessions = this.agentSessions.get(agentId)!;
+      const connectedSessions = existingSessions.filter(s => s.status === "connected");
+      if (connectedSessions.length > 0) {
         return {
           type: "auth_response",
           success: false,
-          message: "Agent not in allowlist",
+          message: "Agent '" + agentId + "' is already connected. Only one client per agent is allowed.",
         };
       }
     }
+
+    const sessionId = randomUUID();
+    this.registerClient(agentId, sessionId);
 
     return {
       type: "auth_response",
       success: true,
-      session_id: randomUUID(),
+      session_id: sessionId,
       message: "Authenticated successfully",
     };
   }
@@ -474,14 +509,18 @@ class RemoteAgentServer extends EventEmitter {
     return results;
   }
 
-  getConfiguredAgents(): Array<{ agent_id: string; connected: boolean }> {
-    const agents: Array<{ agent_id: string; connected: boolean }> = [];
+  getConfiguredAgents(): Array<{ agent_id: string; connected: boolean; lastConnected?: string; registeredAt?: string }> {
+    const agents: Array<{ agent_id: string; connected: boolean; lastConnected?: string; registeredAt?: string }> = [];
     
-    for (const agentId of Object.keys(this.config.agents)) {
+    const clients = this.config.pluginData?.clients || {};
+    for (const agentId of Object.keys(clients)) {
       const sessions = this.agentSessions.get(agentId);
+      const clientInfo = clients[agentId] || {};
       agents.push({
         agent_id: agentId,
         connected: !!sessions && sessions.length > 0 && sessions.some(s => s.status === "connected"),
+        lastConnected: clientInfo.lastConnectedAt,
+        registeredAt: clientInfo.registeredAt,
       });
     }
     

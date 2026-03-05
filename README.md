@@ -1,6 +1,6 @@
 # Remote Agent 远程代理插件
 
-为 OpenClaw 提供远程设备管理能力的插件，支持多设备独立 Token 认证、命令推送和实时状态监控。
+为 OpenClaw 提供远程设备管理能力的插件，支持Token 认证、命令推送和实时状态监控。
 
 ---
 
@@ -64,20 +64,28 @@ Remote Agent 是一个 OpenClaw 服务端插件，配合 `claw-agent-client-rs` 
 │   远程客户端 A     │  │  监控脚本   │  │   AI 助手   │
 │   (台式机/Windows) │  │  (事件订阅) │  │  (命令执行) │
 └────────────────────┘  └────────────┘  └────────────┘
-             
+
 ┌────────────────────┐
 │   远程客户端 B     │
 │   (笔记本/macOS)   │
 └────────────────────┘
 ```
 
+### 认证机制
+
+1. **单一 Token**：服务端配置一个共享 Token，所有客户端使用相同 Token 进行认证
+2. **自动注册**：客户端连接时只要 Token 校验通过，即可自动注册客户端 ID（agent_id）
+3. **唯一在线**：同一客户端 ID 只能有一个在线连接，如果已在线则拒绝新连接
+4. **持久化存储**：客户端信息保存在 `~/.openclaw/claw-remote-agent-plugin.json`
+
 ### 工作流程
 
-1. **客户端连接**：客户端启动后，通过 WebSocket 连接到服务端 8765 端口
-2. **身份认证**：客户端发送 agent_id 和 token 进行认证
-3. **等待命令**：认证成功后，客户端保持连接，等待服务端推送命令
-4. **命令执行**：服务端通过 AI 工具或 Unix Socket 发送命令，客户端执行后返回结果
-5. **事件广播**：客户端上线/下线/命令结果等事件通过 Unix Socket 广播
+1. **生成 Token**：使用工具生成服务器认证 Token
+2. **配置服务端**：在 `openclaw.json` 中配置 Token
+3. **配置客户端**：在客户端 `agent.yml` 中配置相同的 Token 和自己的 ID
+4. **客户端连接**：客户端启动后，通过 WebSocket 连接到服务端 8765 端口
+5. **身份认证**：客户端发送 agent_id 和 token 进行认证
+6. **命令执行**：服务端通过 AI 工具或 Unix Socket 发送命令，客户端执行后返回结果
 
 ### 关键技术点
 
@@ -85,8 +93,8 @@ Remote Agent 是一个 OpenClaw 服务端插件，配合 `claw-agent-client-rs` 
 |------|------|------|
 | WebSocket 服务 | ws 库 | 客户端长连接，支持双向通信 |
 | Unix Socket | net 模块 | 本地进程间通信，实时事件推送 |
-| Token 认证 | UUID 生成 | 每个设备独立 Token，安全隔离 |
-| 工具注册 | OpenClaw SDK | 将远程操作注册为 AI 可调用的工具 |
+| Token 认证 | 单一共享 Token | 所有客户端使用相同 Token |
+| 持久化存储 | JSON 文件 | 客户端信息自动保存 |
 
 ---
 
@@ -96,8 +104,7 @@ Remote Agent 是一个 OpenClaw 服务端插件，配合 `claw-agent-client-rs` 
 
 | 工具名称 | 中文标签 | 功能描述 |
 |----------|----------|----------|
-| `remote_agent.generate_token` | 生成代理令牌 | 为新设备生成认证 Token |
-| `remote_agent.list_agents` | 列出代理列表 | 查看所有设备及其在线状态 |
+| `remote_agent.generate_token` | 生成服务器令牌 | 生成服务器使用的认证 Token |
 | `remote_agent.server_status` | 服务器状态 | 查看服务器运行状态 |
 | `remote_agent.send_command` | 发送命令 | 向指定设备发送任意命令 |
 | `remote_agent.shell_exec` | 执行Shell命令 | 在远程设备上执行命令 |
@@ -135,7 +142,23 @@ openclaw plugins install .
 cp -r ./claw-remote-agent-plugin ~/.openclaw/extensions/claw-remote-agent-plugin
 ```
 
-### 步骤二：配置插件
+### 步骤二：生成 Token
+
+使用插件提供的工具生成认证 Token：
+
+```
+调用: remote_agent.generate_token
+
+返回:
+{
+  "token": "agent-abc123def456...",
+  "note": "请在 openclaw.json 插件配置中添加: token: \"agent-abc123def456...\"",
+  "server_url": "ws://<openclaw服务器地址>:8765/agent/ws",
+  "client_config": "在客户端 agent.yml 中配置: auth.token: \"agent-abc123def456...\""
+}
+```
+
+### 步骤三：配置插件
 
 编辑 `~/.openclaw/openclaw.json`：
 
@@ -148,10 +171,7 @@ cp -r ./claw-remote-agent-plugin ~/.openclaw/extensions/claw-remote-agent-plugin
         "config": {
           "port": 8765,
           "host": "0.0.0.0",
-          "agents": {
-            "台式机": "agent-desktop-a1b2c3d4e5f6g7h8",
-            "笔记本": "agent-laptop-q7r8s9t0u1v2w3x4"
-          }
+          "token": "agent-your-token-here"
         }
       }
     }
@@ -159,20 +179,10 @@ cp -r ./claw-remote-agent-plugin ~/.openclaw/extensions/claw-remote-agent-plugin
 }
 ```
 
-### 步骤三：重启网关
+### 步骤四：重启网关
 
 ```bash
 openclaw gateway restart
-```
-
-### 步骤四：验证安装
-
-```bash
-# 检查服务状态
-openclaw status
-
-# 查看日志
-tail -f /tmp/openclaw/openclaw-*.log | grep claw-remote-agent-plugin
 ```
 
 ### 步骤五：部署客户端
@@ -203,28 +213,44 @@ cp config/agent.yml.example config/agent.yml
 
 | 字段 | 类型 | 必需 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `agents` | object | ✅ 是 | - | 设备 ID 到 Token 的映射 |
+| `token` | string | ✅ 是 | - | 单一认证 Token，所有客户端使用 |
 | `port` | number | 否 | `8765` | WebSocket 服务端口 |
 | `host` | string | 否 | `"0.0.0.0"` | 监听地址 |
-| `unixSocket` | boolean | 否 | `true` | 是否启用 Unix Socket |
-| `unixSocketPath` | string | 否 | `/tmp/claw-remote-agent-plugin.sock` | Unix Socket 路径 |
-| `allowedAgents` | array | 否 | `[]` | 允许连接的设备白名单 |
+
+### 持久化文件
+
+客户端信息保存在 `~/.openclaw/claw-remote-agent-plugin.json`：
+
+```json
+{
+  "clients": {
+    "desktop-pc": {
+      "lastSessionId": "xxx-xxx",
+      "lastConnectedAt": "2026-03-05T10:00:00.000Z",
+      "registeredAt": "2026-03-05T09:00:00.000Z"
+    },
+    "laptop": {
+      "lastSessionId": "yyy-yyy",
+      "lastConnectedAt": "2026-03-05T11:00:00.000Z",
+      "registeredAt": "2026-03-05T09:30:00.000Z"
+    }
+  }
+}
+```
 
 ### 客户端配置 (agent.yml)
 
 ```yaml
-# 设备 ID（必须与服务端配置的 key 匹配）
+# 设备 ID（自定义，用于标识这台设备）
 agent_id: "台式机"
 
 # 服务器地址
 server_url: "ws://192.168.1.100:8765"
 
-# 认证 Token（必须与服务端配置的 value 匹配）
+# 认证 Token（与服务端配置一致）
 auth:
-  token: "agent-desktop-a1b2c3d4e5f6g7h8"
+  token: "agent-your-token-here"
 
-# 日志级别
-log_level: "info"
 ```
 
 ---
@@ -233,49 +259,36 @@ log_level: "info"
 
 ### 生成令牌
 
-为新设备生成认证令牌：
+生成服务器使用的认证 Token：
 
 ```
 调用: remote_agent.generate_token
-参数: { "agentId": "新电脑" }
+参数: {}
 
 返回:
 {
-  "agent_id": "新电脑",
   "token": "agent-abc123def456...",
-  "note": "请在客户端配置文件 agent.yml 中添加: auth.token: \"agent-abc123def456...\"",
-  "server_url": "ws://<openclaw服务器地址>:8765/agent/ws"
+  "note": "请在 openclaw.json 插件配置中添加: token: \"agent-abc123def456...\"",
+  "server_url": "ws://<openclaw服务器地址>:8765/agent/ws",
+  "client_config": "在客户端 agent.yml 中配置: auth.token: \"agent-abc123def456...\""
 }
 ```
 
-### 列出设备
+### 服务器状态
 
-查看所有设备状态：
+查看服务器运行状态：
 
 ```
-调用: remote_agent.list_agents
-参数: { "showTokens": false }
+调用: remote_agent.server_status
+参数: {}
 
 返回:
 {
-  "agents": [
-    {
-      "agent_id": "台式机",
-      "token": "***g7h8",
-      "connected": true,
-      "sessions": 1,
-      "status": "online"
-    },
-    {
-      "agent_id": "笔记本",
-      "token": "***w3x4",
-      "connected": false,
-      "sessions": 0,
-      "status": "离线"
-    }
-  ],
-  "total_configured": 2,
-  "total_online": 1
+  "status": "运行中",
+  "port": 8765,
+  "host": "0.0.0.0",
+  "configured_agents": 2,
+  "connected_agents": 1
 }
 ```
 
@@ -285,10 +298,10 @@ log_level: "info"
 
 ```
 调用: remote_agent.shell_exec
-参数: { 
-  "agentId": "台式机", 
-  "command": "dir C:\\", 
-  "timeout": 10000 
+参数: {
+  "agentId": "台式机",
+  "command": "dir C:\\",
+  "timeout": 10000
 }
 
 返回:
@@ -340,7 +353,7 @@ agent_id: "台式机"
 server_url: "ws://192.168.1.100:8765"
 
 auth:
-  token: "agent-xxx"
+  token: "agent-your-token-here"
 
 log:
   level: "info"
@@ -356,31 +369,6 @@ cargo run
 # 生产模式
 cargo build --release
 ./target/release/claw-agent-client-rs
-```
-
-### 客户端命令处理
-
-客户端需要实现以下命令的处理逻辑：
-
-```rust
-async fn execute_command(action: &str, params: Value) -> Result<Value> {
-    match action {
-        "system.info" => get_system_info().await,
-        "shell.execute" => {
-            let command = params["command"].as_str().unwrap();
-            execute_shell(command).await
-        }
-        "file.list" => {
-            let path = params["path"].as_str().unwrap_or(".");
-            list_files(path).await
-        }
-        "browser.open" => {
-            let url = params["url"].as_str().unwrap();
-            open_browser(url).await
-        }
-        _ => Err(anyhow!("Unknown action: {}", action))
-    }
-}
 ```
 
 ---
@@ -400,7 +388,7 @@ async fn execute_command(action: &str, params: Value) -> Result<Value> {
 
 客户端 → 服务端：
 ```json
-{"type": "auth", "agent_id": "台式机", "token": "agent-desktop-xxx"}
+{"type": "auth", "agent_id": "台式机", "token": "agent-your-token"}
 ```
 
 服务端 → 客户端：
@@ -436,8 +424,8 @@ async fn execute_command(action: &str, params: Value) -> Result<Value> {
 **请求示例**：
 
 ```bash
-# 列出设备
-echo '{"type": "list_agents"}' | nc -U /tmp/claw-remote-agent-plugin.sock
+# 查看服务器状态
+echo '{"type": "server_status"}' | nc -U /tmp/claw-remote-agent-plugin.sock
 
 # 执行命令
 echo '{"type": "shell_exec", "agentId": "台式机", "params": {"command": "whoami"}}' | nc -U /tmp/claw-remote-agent-plugin.sock
@@ -474,11 +462,20 @@ tail -f /tmp/openclaw/openclaw-*.log | grep claw-remote-agent-plugin
 **症状**：服务端返回 "Invalid token"
 
 **排查步骤**：
-1. 确认 `agent_id` 在服务端 `agents` 配置中存在
-2. 确认 `token` 与服务端配置完全一致
-3. 检查是否有多余的空格或换行
+1. 确认客户端 `token` 与服务端配置完全一致
+2. 检查是否有多余的空格或换行
 
-#### 3. 命令执行超时
+#### 3. 客户端已在线被拒绝
+
+**症状**：服务端返回 "Agent is already connected. Only one client per agent is allowed."
+
+**说明**：这是正常行为，同一 agent_id 只能有一个在线连接
+
+**解决**：
+1. 确认没有其他客户端使用相同 agent_id
+2. 如果是之前连接断开后重连失败，请等待几秒后再试
+
+#### 4. 命令执行超时
 
 **症状**：发送命令后长时间无响应
 
@@ -488,14 +485,14 @@ tail -f /tmp/openclaw/openclaw-*.log | grep claw-remote-agent-plugin
 
 **排查步骤**：
 ```bash
-# 查看客户端日志
+# 查看日志
 tail -f logs/agent.log
 
 # 检查 WebSocket 连接状态
 curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" -H "Sec-WebSocket-Key: test" -H "Sec-WebSocket-Version: 13" http://localhost:8765/agent/ws
 ```
 
-#### 4. Unix Socket 无法连接
+#### 5. Unix Socket 无法连接
 
 **症状**：`nc -U` 连接失败
 
@@ -523,22 +520,8 @@ tail -f logs/agent.log
 
 ---
 
-## 版本历史
-
-### v1.0.0 (2026-03-02)
-
-- ✅ 独立 Token 认证方案
-- ✅ WebSocket 长连接
-- ✅ Unix Socket 实时事件
-- ✅ 7 个 AI 工具注册
-- ✅ 中文界面支持
-
----
-
 ## 相关链接
 
-- **客户端仓库1**：https://gitee.com/yuzhanfeng/claw-agent-client-rs.git
-- **客户端仓库2**：https://github.com/easy-do/claw-agent-client-rs.git
+- **客户端仓库**：https://gitee.com/yuzhanfeng/claw-agent-client-rs.git
+- **客户端仓库**：https://github.com/easy-do/claw-agent-client-rs.git
 - **OpenClaw 文档**：https://docs.openclaw.ai
-
----

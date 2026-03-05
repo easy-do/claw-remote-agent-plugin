@@ -4,10 +4,13 @@ import { randomUUID } from "crypto";
 import { getServerInstance } from "./server.js";
 
 interface AgentConfig {
-  agents: Record<string, string>;  // agentId -> token
+  token: string;
   port?: number;
   host?: string;
-  allowedAgents?: string[];
+  pluginDataPath?: string;
+  pluginData?: {
+    clients: Record<string, any>;
+  };
 }
 
 function safeLog(api: OpenClawPluginApi, msg: string) {
@@ -37,67 +40,23 @@ function generateSecureToken(): string {
 }
 
 export function registerRemoteAgentTools(api: OpenClawPluginApi, config: AgentConfig): void {
-  // Tool: Generate token for a specific agent
   api.registerTool(
     () => ({
       name: "remote_agent.generate_token",
-      label: "生成代理令牌",
-      description: "为指定的远程代理生成唯一的认证令牌",
-      parameters: Type.Object({
-        agentId: Type.String({ description: "代理ID（设备名称）" }),
-      }),
-      async execute(_toolCallId, params: { agentId: string }) {
+      label: "生成服务器令牌",
+      description: "生成服务器使用的认证令牌",
+      parameters: Type.Object({}),
+      async execute() {
         const newToken = generateSecureToken();
         return json({
-          agent_id: params.agentId,
           token: newToken,
-          note: "请在客户端配置文件 agent.yml 中添加: auth.token: \"" + newToken + "\"",
+          note: "请在 openclaw.json 插件配置中添加: token: \"" + newToken + "\"",
           server_url: "ws://<openclaw服务器地址>:8765/agent/ws",
+          client_config: "在客户端 agent.yml 中配置: auth.token: \"" + newToken + "\"",
         });
       },
     }),
     { name: "remote_agent.generate_token" }
-  );
-
-  // Tool: List all configured agents with their tokens
-  api.registerTool(
-    () => ({
-      name: "remote_agent.list_agents",
-      label: "列出代理列表",
-      description: "列出所有已配置的远程代理及其连接状态",
-      parameters: Type.Object({
-        showTokens: Type.Optional(Type.Boolean({ 
-          description: "是否显示完整令牌（默认：false，仅显示后4位）",
-          default: false 
-        })),
-      }),
-      async execute(_toolCallId, params: { showTokens?: boolean }) {
-        const server = getServerInstance();
-        const configuredAgents = server?.getConfiguredAgents() || [];
-        const connectedAgents = server?.getConnectedAgents() || [];
-        const showTokens = params.showTokens ?? false;
-        
-        const agents = configuredAgents.map(agent => {
-          const connected = connectedAgents.find(c => c.agent_id === agent.agent_id);
-          const token = config.agents[agent.agent_id] || "";
-          
-          return {
-            agent_id: agent.agent_id,
-            token: showTokens ? token : "***" + token.slice(-4),
-            connected: agent.connected,
-            sessions: connected?.sessions || 0,
-            status: connected?.status || "离线",
-          };
-        });
-        
-        return json({
-          agents,
-          total_configured: agents.length,
-          total_online: agents.filter(a => a.connected).length,
-        });
-      },
-    }),
-    { name: "remote_agent.list_agents" }
   );
 
   // Tool: Get server status
@@ -121,7 +80,7 @@ export function registerRemoteAgentTools(api: OpenClawPluginApi, config: AgentCo
           status: "运行中",
           port: config.port || 8765,
           host: config.host || "0.0.0.0",
-          configured_agents: Object.keys(config.agents).length,
+          configured_agents: server?.getConfiguredAgents().length || 0,
           connected_agents: server.getSessionCount(),
         });
       },

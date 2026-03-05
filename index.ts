@@ -5,16 +5,16 @@ import * as path from 'path';
 const plugin = {
   id: "claw-remote-agent-plugin",
   name: "claw-remote-agent-plugin",
-  description: "Remote agent server with independent token per agent and Unix Socket support",
+  description: "Remote agent server with single token authentication",
   configSchema: {
     type: "object",
     properties: {
       port: { type: "number", default: 8765 },
-      agents: { type: "object", additionalProperties: { type: "string" } },
+      token: { type: "string" },
       unixSocket: { type: "boolean", default: true },
       unixSocketPath: { type: "string", default: "/tmp/claw-remote-agent-plugin.sock" },
     },
-    required: ["agents"],
+    required: ["token"],
   },
   register(api: OpenClawPluginApi) {
     const rt = api.runtime as any;
@@ -22,10 +22,12 @@ const plugin = {
       try { rt.logger?.info?.("[claw-remote-agent-plugin] " + msg); } catch(e) { console.log("[claw-remote-agent-plugin] " + msg); }
     };
     
-    // Read config directly from openclaw.json
-    const configPath = path.join(process.env.HOME || '/home/node', '.openclaw', 'openclaw.json');
-    let config = { 
-      agents: {} as Record<string, string>, 
+    const configDir = path.join(process.env.HOME || '/home/node', '.openclaw');
+    const configPath = path.join(configDir, 'openclaw.json');
+    const pluginDataPath = path.join(configDir, 'claw-remote-agent-plugin.json');
+    
+    let config: any = { 
+      token: "", 
       port: 8765, 
       host: "0.0.0.0",
       unixSocket: true,
@@ -37,8 +39,8 @@ const plugin = {
       const openclawConfig = JSON.parse(content);
       const pluginConfig = openclawConfig?.plugins?.entries?.['claw-remote-agent-plugin']?.config;
       
-      if (pluginConfig?.agents && typeof pluginConfig.agents === 'object') {
-        config.agents = pluginConfig.agents;
+      if (pluginConfig?.token && typeof pluginConfig.token === 'string') {
+        config.token = pluginConfig.token;
       }
       if (pluginConfig?.port) config.port = pluginConfig.port;
       if (pluginConfig?.host) config.host = pluginConfig.host;
@@ -51,11 +53,26 @@ const plugin = {
       throw new Error("claw-remote-agent-plugin: Cannot read config file");
     }
     
-    if (!config.agents || Object.keys(config.agents).length === 0) {
-      throw new Error("claw-remote-agent-plugin: agents config is required and must have at least one agent");
+    if (!config.token || config.token.trim() === "") {
+      throw new Error("claw-remote-agent-plugin: token is required");
     }
     
-    log("Loaded agents: " + Object.keys(config.agents).join(", "));
+    let pluginData: any = { clients: {} };
+    try {
+      if (fs.existsSync(pluginDataPath)) {
+        const dataContent = fs.readFileSync(pluginDataPath, 'utf-8');
+        pluginData = JSON.parse(dataContent);
+        if (!pluginData.clients) pluginData.clients = {};
+      }
+    } catch (e) {
+      log("Failed to read plugin data file: " + (e as Error).message);
+      pluginData = { clients: {} };
+    }
+    
+    config.pluginDataPath = pluginDataPath;
+    config.pluginData = pluginData;
+    
+    log("Token configured: ***" + config.token.slice(-4));
     
     const serverModule = require("./src/server.js");
     const toolsModule = require("./src/tools.js");
