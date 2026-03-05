@@ -22,7 +22,7 @@
 
 ### 是什么？
 
-Remote Agent 是一个 OpenClaw 服务端插件，配合 `cross-platform-agent-rs` 客户端使用，实现对远程设备的控制和管理。
+Remote Agent 是一个 OpenClaw 服务端插件，配合 `claw-agent-client-rs` 客户端使用，实现对远程设备的控制和管理。
 
 ### 能做什么？
 
@@ -177,12 +177,12 @@ tail -f /tmp/openclaw/openclaw-*.log | grep remote-agent
 
 ### 步骤五：部署客户端
 
-在远程设备上部署 `cross-platform-agent-rs` 客户端：
+在远程设备上部署 `claw-agent-client-rs` 客户端：
 
 ```bash
 # 克隆客户端仓库
-git clone https://gitee.com/yuzhanfeng/cross-platform-agent-rs.git
-cd cross-platform-agent-rs
+git clone https://gitee.com/yuzhanfeng/claw-agent-client-rs.git
+cd claw-agent-client-rs
 
 # 编译（需要 Rust 环境）
 cargo build --release
@@ -192,7 +192,7 @@ cp config/agent.yml.example config/agent.yml
 # 编辑 agent.yml，填入 agent_id、server_url 和 token
 
 # 运行
-./target/release/cross-platform-agent
+./target/release/claw-agent-client-rs
 ```
 
 ---
@@ -329,9 +329,9 @@ log_level: "info"
 
 ## 客户端配置
 
-### Rust 客户端 (cross-platform-agent-rs)
+### Rust 客户端 (claw-agent-client-rs)
 
-**仓库地址**：https://gitee.com/yuzhanfeng/cross-platform-agent-rs
+**仓库地址**：https://gitee.com/yuzhanfeng/claw-agent-client-rs
 
 **配置文件**：`config/agent.yml`
 
@@ -340,7 +340,7 @@ agent_id: "台式机"
 server_url: "ws://192.168.1.100:8765"
 
 auth:
-  token: "agent-desktop-xxx"
+  token: "agent-xxx"
 
 log:
   level: "info"
@@ -355,7 +355,7 @@ cargo run
 
 # 生产模式
 cargo build --release
-./target/release/cross-platform-agent
+./target/release/claw-agent-client-rs
 ```
 
 ### 客户端命令处理
@@ -484,7 +484,6 @@ tail -f /tmp/openclaw/openclaw-*.log | grep remote-agent
 
 **可能原因**：
 - 客户端未正确处理命令
-- 客户端与主循环存在锁竞争（已修复）
 - 网络延迟过高
 
 **排查步骤**：
@@ -533,18 +532,13 @@ tail -f logs/agent.log
 - ✅ Unix Socket 实时事件
 - ✅ 7 个 AI 工具注册
 - ✅ 中文界面支持
-- ✅ 客户端 Ping/Pong 锁竞争问题修复
 
 ---
 
 ## 相关链接
 
-- **客户端仓库**：https://gitee.com/yuzhanfeng/cross-platform-agent-rs
+- **客户端仓库1**：https://gitee.com/yuzhanfeng/claw-agent-client-rs.git
+- **客户端仓库2**：https://github.com/easy-do/claw-agent-client-rs.git
 - **OpenClaw 文档**：https://docs.openclaw.ai
-- **问题反馈**：https://github.com/openclaw/openclaw/issues
 
 ---
-
-## 许可证
-
-MIT License
