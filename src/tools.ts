@@ -235,5 +235,105 @@ export function registerRemoteAgentTools(api: OpenClawPluginApi, config: AgentCo
     { name: "remote_agent.disconnect_agent" }
   );
 
+  // Tool: Read file from agent
+  api.registerTool(
+    () => ({
+      name: "remote_agent.file_read",
+      label: "读取文件",
+      description: "读取指定远程代理上的文件内容（文本或二进制转Base64）",
+      parameters: Type.Object({
+        agentId: Type.String({ description: "目标代理ID（设备名称）" }),
+        path: Type.String({ description: "要读取的文件路径" }),
+        maxSize: Type.Optional(Type.Number({ 
+          description: "最大读取字节数，默认10485760（10MB）",
+          default: 10485760 
+        })),
+        encoding: Type.Optional(Type.String({ 
+          description: "字符编码，默认utf-8",
+          default: "utf-8" 
+        })),
+      }),
+      async execute(_toolCallId, params: { agentId: string; path: string; maxSize?: number; encoding?: string }) {
+        const server = getServerInstance();
+        if (!server) {
+          return json({ error: "服务器未运行" });
+        }
+        
+        try {
+          const result = await server.sendCommand(
+            params.agentId,
+            "file.read",
+            {
+              path: params.path,
+              max_size: params.maxSize || 10485760,
+              encoding: params.encoding || "utf-8"
+            }
+          );
+          return json({
+            agent_id: params.agentId,
+            data: result,
+          });
+        } catch (e) {
+          return json({
+            error: e instanceof Error ? e.message : String(e),
+            agent_id: params.agentId,
+          });
+        }
+      },
+    }),
+    { name: "remote_agent.file_read" }
+  );
+
+  // Tool: Write file to agent
+  api.registerTool(
+    () => ({
+      name: "remote_agent.file_write",
+      label: "写入文件",
+      description: "在指定远程代理上写入文件内容",
+      parameters: Type.Object({
+        agentId: Type.String({ description: "目标代理ID（设备名称）" }),
+        path: Type.String({ description: "要写入的文件路径" }),
+        content: Type.String({ description: "要写入的内容" }),
+        append: Type.Optional(Type.Boolean({ 
+          description: "是否追加模式，默认false（覆盖写入）",
+          default: false 
+        })),
+        encoding: Type.Optional(Type.String({ 
+          description: "字符编码，默认utf-8",
+          default: "utf-8" 
+        })),
+      }),
+      async execute(_toolCallId, params: { agentId: string; path: string; content: string; append?: boolean; encoding?: string }) {
+        const server = getServerInstance();
+        if (!server) {
+          return json({ error: "服务器未运行" });
+        }
+        
+        try {
+          const result = await server.sendCommand(
+            params.agentId,
+            "file.write",
+            {
+              path: params.path,
+              content: params.content,
+              append: params.append || false,
+              encoding: params.encoding || "utf-8"
+            }
+          );
+          return json({
+            agent_id: params.agentId,
+            data: result,
+          });
+        } catch (e) {
+          return json({
+            error: e instanceof Error ? e.message : String(e),
+            agent_id: params.agentId,
+          });
+        }
+      },
+    }),
+    { name: "remote_agent.file_write" }
+  );
+
   safeLog(api, "工具注册完成（中文模式）");
 }

@@ -73,6 +73,7 @@ class RemoteAgentServer extends EventEmitter {
   private wss: WebSocketServer | null = null;
   private sessions: Map<string, AgentSession> = new Map();
   private agentSessions: Map<string, AgentSession[]> = new Map();
+  private registeredAgents: Map<string, { registeredAt: Date; lastConnected: Date }> = new Map();
   private pendingCommands: Map<string, PendingCommand> = new Map();
   private config: AgentConfig;
   private api: OpenClawPluginApi;
@@ -133,6 +134,7 @@ class RemoteAgentServer extends EventEmitter {
     }
     this.sessions.clear();
     this.agentSessions.clear();
+    this.registeredAgents.clear();
 
     this.log("Server stopped");
   }
@@ -228,8 +230,7 @@ class RemoteAgentServer extends EventEmitter {
           if (idx >= 0) agentSessions.splice(idx, 1);
           if (agentSessions.length === 0) {
             this.agentSessions.delete(session.agentId);
-            this.updateClientLastConnected(session.agentId);
-            this.log("Agent " + session.agentId + " fully disconnected");
+            this.log("Agent " + session.agentId + " fully disconnected and removed from list");
             
             broadcastToUnixSocketClients({
               type: 'agent_disconnected',
@@ -264,44 +265,23 @@ class RemoteAgentServer extends EventEmitter {
     return tokenStr === this.config.token;
   }
 
-  private savePluginData(): void {
-    if (!this.config.pluginDataPath || !this.config.pluginData) return;
-    try {
-      const fs = require('fs');
-      const data = JSON.stringify(this.config.pluginData, null, 2);
-      fs.writeFileSync(this.config.pluginDataPath, data, 'utf-8');
-      this.log("Plugin data saved");
-    } catch (e) {
-      this.log("Failed to save plugin data: " + (e as Error).message);
-    }
-  }
-
   private registerClient(agentId: string, sessionId: string): void {
-    if (!this.config.pluginData) {
-      this.config.pluginData = { clients: {} };
+    const now = new Date();
+    if (!this.registeredAgents.has(agentId)) {
+      this.registeredAgents.set(agentId, {
+        registeredAt: now,
+        lastConnected: now,
+      });
+    } else {
+      const info = this.registeredAgents.get(agentId)!;
+      info.lastConnected = now;
     }
-    if (!this.config.pluginData.clients) {
-      this.config.pluginData.clients = {};
-    }
-    
-    const clientInfo = this.config.pluginData.clients[agentId] || {};
-    clientInfo.lastSessionId = sessionId;
-    clientInfo.lastConnectedAt = new Date().toISOString();
-    clientInfo.registeredAt = clientInfo.registeredAt || new Date().toISOString();
-    
-    this.config.pluginData.clients[agentId] = clientInfo;
-    this.savePluginData();
   }
 
   private updateClientLastConnected(agentId: string): void {
-    if (!this.config.pluginData || !this.config.pluginData.clients) {
-      return;
-    }
-    
-    const clientInfo = this.config.pluginData.clients[agentId];
-    if (clientInfo) {
-      clientInfo.lastConnectedAt = new Date().toISOString();
-      this.savePluginData();
+    const info = this.registeredAgents.get(agentId);
+    if (info) {
+      info.lastConnected = new Date();
     }
   }
 
@@ -541,25 +521,26 @@ class RemoteAgentServer extends EventEmitter {
       sessionId?: string;
     }> = [];
     
-    const clients = this.config.pluginData?.clients || {};
     const allAgentIds = new Set([
-      ...Object.keys(clients),
+      ...this.registeredAgents.keys(),
       ...this.agentSessions.keys()
     ]);
     
     for (const agentId of allAgentIds) {
       const sessions = this.agentSessions.get(agentId) || [];
-      const clientInfo = clients[agentId] || {};
+      const registeredInfo = this.registeredAgents.get(agentId);
       const connectedSessions = sessions.filter(s => s.status === "connected");
       
-      agents.push({
-        agent_id: agentId,
-        status: connectedSessions.length > 0 ? "online" : "offline",
-        sessions: sessions.length,
-        lastConnected: clientInfo.lastConnectedAt,
-        registeredAt: clientInfo.registeredAt,
-        sessionId: connectedSessions.length > 0 ? connectedSessions[0].sessionId : undefined,
-      });
+      if (connectedSessions.length > 0 || registeredInfo) {
+        agents.push({
+          agent_id: agentId,
+          status: connectedSessions.length > 0 ? "online" : "offline",
+          sessions: sessions.length,
+          lastConnected: registeredInfo?.lastConnected.toISOString(),
+          registeredAt: registeredInfo?.registeredAt.toISOString(),
+          sessionId: connectedSessions.length > 0 ? connectedSessions[0].sessionId : undefined,
+        });
+      }
     }
     
     return agents;

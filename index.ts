@@ -57,21 +57,6 @@ const plugin = {
       throw new Error("claw-remote-agent-plugin: token is required");
     }
     
-    let pluginData: any = { clients: {} };
-    try {
-      if (fs.existsSync(pluginDataPath)) {
-        const dataContent = fs.readFileSync(pluginDataPath, 'utf-8');
-        pluginData = JSON.parse(dataContent);
-        if (!pluginData.clients) pluginData.clients = {};
-      }
-    } catch (e) {
-      log("Failed to read plugin data file: " + (e as Error).message);
-      pluginData = { clients: {} };
-    }
-    
-    config.pluginDataPath = pluginDataPath;
-    config.pluginData = pluginData;
-    
     log("Token configured: ***" + config.token.slice(-4));
     
     const serverModule = require("./src/server.js");

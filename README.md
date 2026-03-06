@@ -74,7 +74,7 @@ Remote Agent 是一个 OpenClaw 服务端插件，配合 `claw-agent-client-rs` 
 1. **单一 Token**：服务端配置一个共享 Token，所有客户端使用相同 Token 进行认证
 2. **自动注册**：客户端连接时只要 Token 校验通过，即可自动注册客户端 ID（agent_id）
 3. **唯一在线**：同一客户端 ID 只能有一个在线连接，如果已在线则拒绝新连接
-4. **持久化存储**：客户端信息保存在 `~/.openclaw/claw-remote-agent-plugin.json`
+4. **内存维护**：客户端列表在内存中实时维护，服务重启后自动清空
 
 ### 工作流程
 
@@ -92,7 +92,7 @@ Remote Agent 是一个 OpenClaw 服务端插件，配合 `claw-agent-client-rs` 
 | WebSocket 服务 | ws 库 | 客户端长连接，支持双向通信 |
 | Unix Socket | net 模块 | 本地进程间通信，实时事件推送 |
 | Token 认证 | 单一共享 Token | 所有客户端使用相同 Token |
-| 持久化存储 | JSON 文件 | 客户端信息自动保存 |
+| 内存管理 | Map 数据结构 | 客户端列表实时维护 |
 
 ---
 
@@ -108,6 +108,8 @@ Remote Agent 是一个 OpenClaw 服务端插件，配合 `claw-agent-client-rs` 
 | `remote_agent.shell_exec` | 执行Shell命令 | 在远程设备上执行Shell命令 |
 | `remote_agent.get_system_info` | 获取系统信息 | 获取设备的系统信息 |
 | `remote_agent.disconnect_agent` | 断开代理连接 | 强制断开指定设备的连接 |
+| `remote_agent.file_read` | 读取文件 | 读取远程设备的文件内容 |
+| `remote_agent.file_write` | 写入文件 | 在远程设备上写入文件内容 |
 
 ### 客户端支持的命令
 
@@ -117,6 +119,8 @@ Remote Agent 是一个 OpenClaw 服务端插件，配合 `claw-agent-client-rs` 
 | `shell.execute` | 执行 Shell 命令 | `command`, `timeout` |
 | `process.list` | 列出进程 | 无 |
 | `file.list` | 列出文件 | `path` |
+| `file.read` | 读取文件内容 | `path`, `max_size`, `encoding` |
+| `file.write` | 写入文件内容 | `path`, `content`, `append`, `encoding` |
 | `software.list` | 列出已安装软件 | 无 |
 
 ---
@@ -215,26 +219,39 @@ cp config/agent.yml.example config/agent.yml
 | `port` | number | 否 | `8765` | WebSocket 服务端口 |
 | `host` | string | 否 | `"0.0.0.0"` | 监听地址 |
 
-### 持久化文件
+### 客户端列表
 
-客户端信息保存在 `~/.openclaw/claw-remote-agent-plugin.json`：
+客户端列表在服务内存中实时维护，可通过工具查询：
 
-```json
+```
+调用: remote_agent.list_agents
+参数: {}
+
+返回:
 {
-  "clients": {
-    "desktop-pc": {
-      "lastSessionId": "xxx-xxx",
-      "lastConnectedAt": "2026-03-05T10:00:00.000Z",
-      "registeredAt": "2026-03-05T09:00:00.000Z"
+  "agents": [
+    {
+      "agent_id": "台式机",
+      "status": "online",
+      "sessions": 1,
+      "lastConnected": "2026-03-05T10:00:00.000Z",
+      "registeredAt": "2026-03-05T09:00:00.000Z",
+      "sessionId": "xxx-xxx-xxx"
     },
-    "laptop": {
-      "lastSessionId": "yyy-yyy",
-      "lastConnectedAt": "2026-03-05T11:00:00.000Z",
-      "registeredAt": "2026-03-05T09:30:00.000Z"
+    {
+      "agent_id": "笔记本",
+      "status": "offline",
+      "sessions": 0,
+      "lastConnected": "2026-03-05T08:00:00.000Z",
+      "registeredAt": "2026-03-05T07:30:00.000Z"
     }
-  }
+  ],
+  "total_registered": 2,
+  "total_online": 1
 }
 ```
+
+**注意**：服务重启后，所有客户端连接记录将被清空，客户端需要重新连接。
 
 ### 客户端配置 (agent.yml)
 
@@ -367,6 +384,73 @@ auth:
   }
 }
 ```
+
+### 读取文件
+
+读取远程设备的文件内容：
+
+```
+调用: remote_agent.file_read
+参数: {
+  "agentId": "台式机",
+  "path": "C:\\test\\file.txt",
+  "maxSize": 10485760,
+  "encoding": "utf-8"
+}
+
+返回:
+{
+  "success": true,
+  "data": {
+    "content": "文件内容...",
+    "is_base64": false,
+    "size_bytes": 1024,
+    "truncated": false
+  }
+}
+```
+
+参数说明：
+- `agentId`：客户端ID
+- `path`：文件路径（必填）
+- `maxSize`：最大读取字节数，默认 10485760（10MB）
+- `encoding`：字符编码（可选，默认 utf-8）
+
+返回字段说明：
+- `content`：文件内容（文本直接返回，二进制返回Base64编码）
+- `is_base64`：是否为Base64编码
+- `size_bytes`：文件大小
+- `truncated`：是否被截断
+
+### 写入文件
+
+在远程设备上写入文件内容：
+
+```
+调用: remote_agent.file_write
+参数: {
+  "agentId": "台式机",
+  "path": "C:\\test\\output.txt",
+  "content": "要写入的内容",
+  "append": false,
+  "encoding": "utf-8"
+}
+
+返回:
+{
+  "success": true,
+  "data": {
+    "bytes_written": 1024
+  }
+}
+```
+
+参数说明：
+- `agentId`：客户端ID
+- `path`：文件路径（必填）
+- `content`：写入内容（必填）
+- `append`：是否追加模式，默认 false
+- `encoding`：字符编码（可选，默认 utf-8）
 
 ---
 
@@ -542,7 +626,7 @@ openclaw gateway restart
 
 ```bash
 # 服务端日志
-tail -f /tmp/openclaw/openclaw-$(date +%Y-%m-%d).log | grep -i remote-agent
+tail -f /tmp/openclaw/openclaw-$(date +%Y-%m-%d).log | grep -i claw-remote-agent-plugin
 
 # 客户端日志
 tail -f logs/agent.log
