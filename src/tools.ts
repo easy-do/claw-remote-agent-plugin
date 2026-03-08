@@ -335,5 +335,391 @@ export function registerRemoteAgentTools(api: OpenClawPluginApi, config: AgentCo
     { name: "remote_agent.file_write" }
   );
 
+  // Tool: Delete file on agent
+  api.registerTool(
+    () => ({
+      name: "remote_agent.file_delete",
+      label: "删除文件",
+      description: "删除指定远程代理上的文件",
+      parameters: Type.Object({
+        agentId: Type.String({ description: "目标代理ID（设备名称）" }),
+        path: Type.String({ description: "要删除的文件路径" }),
+      }),
+      async execute(_toolCallId, params: { agentId: string; path: string }) {
+        const server = getServerInstance();
+        if (!server) {
+          return json({ error: "服务器未运行" });
+        }
+        
+        try {
+          const result = await server.sendCommand(params.agentId, "file.delete", { path: params.path });
+          return json({ success: true, agent_id: params.agentId, data: result });
+        } catch (e) {
+          return json({ error: e instanceof Error ? e.message : String(e), agent_id: params.agentId });
+        }
+      },
+    }),
+    { name: "remote_agent.file_delete" }
+  );
+
+  // Tool: List files on agent
+  api.registerTool(
+    () => ({
+      name: "remote_agent.file_list",
+      label: "列出文件",
+      description: "列出指定远程代理上指定目录的文件",
+      parameters: Type.Object({
+        agentId: Type.String({ description: "目标代理ID（设备名称）" }),
+        path: Type.String({ description: "要列出的目录路径" }),
+      }),
+      async execute(_toolCallId, params: { agentId: string; path: string }) {
+        const server = getServerInstance();
+        if (!server) {
+          return json({ error: "服务器未运行" });
+        }
+        
+        try {
+          const result = await server.sendCommand(params.agentId, "file.list", { path: params.path });
+          return json({ success: true, agent_id: params.agentId, data: result });
+        } catch (e) {
+          return json({ error: e instanceof Error ? e.message : String(e), agent_id: params.agentId });
+        }
+      },
+    }),
+    { name: "remote_agent.file_list" }
+  );
+
+  // Tool: List processes on agent
+  api.registerTool(
+    () => ({
+      name: "remote_agent.process_list",
+      label: "列出进程",
+      description: "列出指定远程代理上运行的进程",
+      parameters: Type.Object({
+        agentId: Type.String({ description: "目标代理ID（设备名称）" }),
+      }),
+      async execute(_toolCallId, params: { agentId: string }) {
+        const server = getServerInstance();
+        if (!server) {
+          return json({ error: "服务器未运行" });
+        }
+        
+        try {
+          const result = await server.sendCommand(params.agentId, "process.list", {});
+          return json({ success: true, agent_id: params.agentId, data: result });
+        } catch (e) {
+          return json({ error: e instanceof Error ? e.message : String(e), agent_id: params.agentId });
+        }
+      },
+    }),
+    { name: "remote_agent.process_list" }
+  );
+
+  // Tool: Stop process on agent
+  api.registerTool(
+    () => ({
+      name: "remote_agent.process_stop",
+      label: "停止进程",
+      description: "停止指定远程代理上的指定进程",
+      parameters: Type.Object({
+        agentId: Type.String({ description: "目标代理ID（设备名称）" }),
+        pid: Type.Number({ description: "要停止的进程ID" }),
+        force: Type.Optional(Type.Boolean({ 
+          description: "是否强制终止，默认false",
+          default: false 
+        })),
+      }),
+      async execute(_toolCallId, params: { agentId: string; pid: number; force?: boolean }) {
+        const server = getServerInstance();
+        if (!server) {
+          return json({ error: "服务器未运行" });
+        }
+        
+        try {
+          const result = await server.sendCommand(params.agentId, "process.stop", { 
+            pid: params.pid, 
+            force: params.force || false 
+          });
+          return json({ success: true, agent_id: params.agentId, data: result });
+        } catch (e) {
+          return json({ error: e instanceof Error ? e.message : String(e), agent_id: params.agentId });
+        }
+      },
+    }),
+    { name: "remote_agent.process_stop" }
+  );
+
+  // Tool: List software on agent
+  api.registerTool(
+    () => ({
+      name: "remote_agent.software_list",
+      label: "列出已安装软件",
+      description: "列出指定远程代理上已安装的软件",
+      parameters: Type.Object({
+        agentId: Type.String({ description: "目标代理ID（设备名称）" }),
+      }),
+      async execute(_toolCallId, params: { agentId: string }) {
+        const server = getServerInstance();
+        if (!server) {
+          return json({ error: "服务器未运行" });
+        }
+        
+        try {
+          const result = await server.sendCommand(params.agentId, "software.list", {});
+          return json({ success: true, agent_id: params.agentId, data: result });
+        } catch (e) {
+          return json({ error: e instanceof Error ? e.message : String(e), agent_id: params.agentId });
+        }
+      },
+    }),
+    { name: "remote_agent.software_list" }
+  );
+
+  // Tool: List environment variables on agent
+  api.registerTool(
+    () => ({
+      name: "remote_agent.env_list",
+      label: "列出环境变量",
+      description: "列出指定远程代理的环境变量",
+      parameters: Type.Object({
+        agentId: Type.String({ description: "目标代理ID（设备名称）" }),
+        scope: Type.Optional(Type.String({ 
+          description: "环境变量范围（user/system），默认user",
+          default: "user" 
+        })),
+      }),
+      async execute(_toolCallId, params: { agentId: string; scope?: string }) {
+        const server = getServerInstance();
+        if (!server) {
+          return json({ error: "服务器未运行" });
+        }
+        
+        try {
+          const result = await server.sendCommand(params.agentId, "env.list", { 
+            scope: params.scope || "user" 
+          });
+          return json({ success: true, agent_id: params.agentId, data: result });
+        } catch (e) {
+          return json({ error: e instanceof Error ? e.message : String(e), agent_id: params.agentId });
+        }
+      },
+    }),
+    { name: "remote_agent.env_list" }
+  );
+
+  // Tool: Get environment variable on agent
+  api.registerTool(
+    () => ({
+      name: "remote_agent.env_get",
+      label: "获取环境变量",
+      description: "获取指定远程代理的指定环境变量",
+      parameters: Type.Object({
+        agentId: Type.String({ description: "目标代理ID（设备名称）" }),
+        name: Type.String({ description: "环境变量名称" }),
+        scope: Type.Optional(Type.String({ 
+          description: "环境变量范围（user/system），默认user",
+          default: "user" 
+        })),
+      }),
+      async execute(_toolCallId, params: { agentId: string; name: string; scope?: string }) {
+        const server = getServerInstance();
+        if (!server) {
+          return json({ error: "服务器未运行" });
+        }
+        
+        try {
+          const result = await server.sendCommand(params.agentId, "env.get", { 
+            name: params.name,
+            scope: params.scope || "user" 
+          });
+          return json({ success: true, agent_id: params.agentId, data: result });
+        } catch (e) {
+          return json({ error: e instanceof Error ? e.message : String(e), agent_id: params.agentId });
+        }
+      },
+    }),
+    { name: "remote_agent.env_get" }
+  );
+
+  // Tool: Set environment variable on agent
+  api.registerTool(
+    () => ({
+      name: "remote_agent.env_set",
+      label: "设置环境变量",
+      description: "设置指定远程代理的环境变量",
+      parameters: Type.Object({
+        agentId: Type.String({ description: "目标代理ID（设备名称）" }),
+        name: Type.String({ description: "环境变量名称" }),
+        value: Type.String({ description: "环境变量值" }),
+        scope: Type.Optional(Type.String({ 
+          description: "环境变量范围（user/system），默认user",
+          default: "user" 
+        })),
+      }),
+      async execute(_toolCallId, params: { agentId: string; name: string; value: string; scope?: string }) {
+        const server = getServerInstance();
+        if (!server) {
+          return json({ error: "服务器未运行" });
+        }
+        
+        try {
+          const result = await server.sendCommand(params.agentId, "env.set", { 
+            name: params.name,
+            value: params.value,
+            scope: params.scope || "user" 
+          });
+          return json({ success: true, agent_id: params.agentId, data: result });
+        } catch (e) {
+          return json({ error: e instanceof Error ? e.message : String(e), agent_id: params.agentId });
+        }
+      },
+    }),
+    { name: "remote_agent.env_set" }
+  );
+
+  // Tool: Delete environment variable on agent
+  api.registerTool(
+    () => ({
+      name: "remote_agent.env_delete",
+      label: "删除环境变量",
+      description: "删除指定远程代理的环境变量",
+      parameters: Type.Object({
+        agentId: Type.String({ description: "目标代理ID（设备名称）" }),
+        name: Type.String({ description: "环境变量名称" }),
+        scope: Type.Optional(Type.String({ 
+          description: "环境变量范围（user/system），默认user",
+          default: "user" 
+        })),
+      }),
+      async execute(_toolCallId, params: { agentId: string; name: string; scope?: string }) {
+        const server = getServerInstance();
+        if (!server) {
+          return json({ error: "服务器未运行" });
+        }
+        
+        try {
+          const result = await server.sendCommand(params.agentId, "env.delete", { 
+            name: params.name,
+            scope: params.scope || "user" 
+          });
+          return json({ success: true, agent_id: params.agentId, data: result });
+        } catch (e) {
+          return json({ error: e instanceof Error ? e.message : String(e), agent_id: params.agentId });
+        }
+      },
+    }),
+    { name: "remote_agent.env_delete" }
+  );
+
+  // Tool: Get config on agent
+  api.registerTool(
+    () => ({
+      name: "remote_agent.config_get",
+      label: "获取配置",
+      description: "获取指定远程代理的系统配置（Windows注册表）",
+      parameters: Type.Object({
+        agentId: Type.String({ description: "目标代理ID（设备名称）" }),
+        path: Type.String({ description: "配置路径（如注册表键）" }),
+      }),
+      async execute(_toolCallId, params: { agentId: string; path: string }) {
+        const server = getServerInstance();
+        if (!server) {
+          return json({ error: "服务器未运行" });
+        }
+        
+        try {
+          const result = await server.sendCommand(params.agentId, "config.get", { path: params.path });
+          return json({ success: true, agent_id: params.agentId, data: result });
+        } catch (e) {
+          return json({ error: e instanceof Error ? e.message : String(e), agent_id: params.agentId });
+        }
+      },
+    }),
+    { name: "remote_agent.config_get" }
+  );
+
+  // Tool: Set config on agent
+  api.registerTool(
+    () => ({
+      name: "remote_agent.config_set",
+      label: "设置配置",
+      description: "设置指定远程代理的系统配置（Windows注册表）",
+      parameters: Type.Object({
+        agentId: Type.String({ description: "目标代理ID（设备名称）" }),
+        path: Type.String({ description: "配置路径（如注册表键）" }),
+        value: Type.String({ description: "配置值" }),
+      }),
+      async execute(_toolCallId, params: { agentId: string; path: string; value: string }) {
+        const server = getServerInstance();
+        if (!server) {
+          return json({ error: "服务器未运行" });
+        }
+        
+        try {
+          const result = await server.sendCommand(params.agentId, "config.set", { 
+            path: params.path,
+            value: params.value 
+          });
+          return json({ success: true, agent_id: params.agentId, data: result });
+        } catch (e) {
+          return json({ error: e instanceof Error ? e.message : String(e), agent_id: params.agentId });
+        }
+      },
+    }),
+    { name: "remote_agent.config_set" }
+  );
+
+  // Tool: Reboot agent
+  api.registerTool(
+    () => ({
+      name: "remote_agent.system_reboot",
+      label: "重启系统",
+      description: "重启指定远程代理的系统",
+      parameters: Type.Object({
+        agentId: Type.String({ description: "目标代理ID（设备名称）" }),
+      }),
+      async execute(_toolCallId, params: { agentId: string }) {
+        const server = getServerInstance();
+        if (!server) {
+          return json({ error: "服务器未运行" });
+        }
+        
+        try {
+          const result = await server.sendCommand(params.agentId, "system.reboot", {});
+          return json({ success: true, message: "系统将在几秒后重启", agent_id: params.agentId, data: result });
+        } catch (e) {
+          return json({ error: e instanceof Error ? e.message : String(e), agent_id: params.agentId });
+        }
+      },
+    }),
+    { name: "remote_agent.system_reboot" }
+  );
+
+  // Tool: Shutdown agent
+  api.registerTool(
+    () => ({
+      name: "remote_agent.system_shutdown",
+      label: "关闭系统",
+      description: "关闭指定远程代理的系统",
+      parameters: Type.Object({
+        agentId: Type.String({ description: "目标代理ID（设备名称）" }),
+      }),
+      async execute(_toolCallId, params: { agentId: string }) {
+        const server = getServerInstance();
+        if (!server) {
+          return json({ error: "服务器未运行" });
+        }
+        
+        try {
+          const result = await server.sendCommand(params.agentId, "system.shutdown", {});
+          return json({ success: true, message: "系统将在几秒后关闭", agent_id: params.agentId, data: result });
+        } catch (e) {
+          return json({ error: e instanceof Error ? e.message : String(e), agent_id: params.agentId });
+        }
+      },
+    }),
+    { name: "remote_agent.system_shutdown" }
+  );
+
   safeLog(api, "工具注册完成（中文模式）");
 }

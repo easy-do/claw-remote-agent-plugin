@@ -110,18 +110,49 @@ Remote Agent 是一个 OpenClaw 服务端插件，配合 `claw-agent-client-rs` 
 | `remote_agent.disconnect_agent` | 断开代理连接 | 强制断开指定设备的连接 |
 | `remote_agent.file_read` | 读取文件 | 读取远程设备的文件内容 |
 | `remote_agent.file_write` | 写入文件 | 在远程设备上写入文件内容 |
+| `remote_agent.file_delete` | 删除文件 | 删除远程设备的文件 |
+| `remote_agent.file_list` | 列出文件 | 列出远程设备指定目录的文件 |
+| `remote_agent.process_list` | 列出进程 | 列出远程设备上运行的进程 |
+| `remote_agent.process_stop` | 停止进程 | 停止远程设备上的指定进程 |
+| `remote_agent.software_list` | 列出已安装软件 | 列出远程设备上已安装的软件 |
+| `remote_agent.env_list` | 列出环境变量 | 列出远程设备的环境变量 |
+| `remote_agent.env_get` | 获取环境变量 | 获取远程设备的指定环境变量 |
+| `remote_agent.env_set` | 设置环境变量 | 设置远程设备的环境变量 |
+| `remote_agent.env_delete` | 删除环境变量 | 删除远程设备的环境变量 |
+| `remote_agent.config_get` | 获取配置 | 获取远程设备的系统配置 |
+| `remote_agent.config_set` | 设置配置 | 设置远程设备的系统配置 |
+| `remote_agent.system_reboot` | 重启系统 | 重启远程设备 |
+| `remote_agent.system_shutdown` | 关闭系统 | 关闭远程设备 |
 
 ### 客户端支持的命令
 
 | 命令 | 说明 | 参数 |
 |------|------|------|
+| `capabilities` | 获取客户端支持的所有命令列表 | 无 |
 | `system.info` | 获取系统信息 | 无 |
-| `shell.execute` | 执行 Shell 命令 | `command`, `timeout` |
+| `system.reboot` | 重启系统 | 无 |
+| `system.shutdown` | 关闭系统 | 无 |
 | `process.list` | 列出进程 | 无 |
-| `file.list` | 列出文件 | `path` |
-| `file.read` | 读取文件内容 | `path`, `max_size`, `encoding` |
-| `file.write` | 写入文件内容 | `path`, `content`, `append`, `encoding` |
+| `process.stop` | 停止进程 | `pid`, `force` |
 | `software.list` | 列出已安装软件 | 无 |
+| `software.search` | 搜索软件 | `query` |
+| `software.install` | 安装软件 | `package`, `silent` |
+| `software.uninstall` | 卸载软件 | `package` |
+| `env.list` | 列出环境变量 | `scope` |
+| `env.get` | 获取环境变量 | `name`, `scope` |
+| `env.set` | 设置环境变量 | `name`, `value`, `scope` |
+| `env.delete` | 删除环境变量 | `name`, `scope` |
+| `file.list` | 列出文件 | `path` |
+| `file.read` | 读取文件内容 | `path` |
+| `file.write` | 写入文件内容 | `path`, `content` |
+| `file.delete` | 删除文件 | `path` |
+| `file.create_dir` | 创建目录 | `path`, `recursive` |
+| `file.copy` | 复制文件 | `src`, `dst` |
+| `file.move` | 移动文件 | `src`, `dst` |
+| `file.download` | 下载文件 | `url`, `dest` |
+| `config.get` | 获取配置 | `path` |
+| `config.set` | 设置配置 | `path`, `value` |
+| `shell.execute` | 执行 Shell 命令 | `command`, `timeout` |
 
 ---
 
@@ -339,118 +370,102 @@ auth:
 }
 ```
 
-### 执行命令
+## 支持命令
 
-在远程设备上执行命令：
-
-```
-调用: remote_agent.shell_exec
-参数: {
-  "agentId": "台式机",
-  "command": "dir C:\\",
-  "timeout": 10000
-}
-
-返回:
-{
-  "agent_id": "台式机",
-  "command": "dir C:\\",
-  "result": {
-    "stdout": " 驱动器 C 中的卷没有标签。\n...",
-    "stderr": "",
-    "exit_code": 0
-  }
-}
+### capabilities 获取客户端能力
+```json
+{ "action": "capabilities", "params": {} }
 ```
 
-### 获取系统信息
-
-```
-调用: remote_agent.get_system_info
-参数: { "agentId": "台式机" }
-
-返回:
-{
-  "agent_id": "台式机",
-  "system_info": {
-    "hostname": "DESKTOP-PC",
-    "os_type": "windows",
-    "os_version": "10.0.19045",
-    "arch": "x64",
-    "username": "admin",
-    "cpu_count": 8,
-    "total_memory_gb": 16.0,
-    "available_memory_gb": 8.5
-  }
-}
+### system.info 获取系统信息
+```json
+{ "action": "system.info", "params": {} }
 ```
 
-### 读取文件
-
-读取远程设备的文件内容：
-
-```
-调用: remote_agent.file_read
-参数: {
-  "agentId": "台式机",
-  "path": "C:\\test\\file.txt",
-  "maxSize": 10485760,
-  "encoding": "utf-8"
-}
-
-返回:
-{
-  "success": true,
-  "data": {
-    "content": "文件内容...",
-    "is_base64": false,
-    "size_bytes": 1024,
-    "truncated": false
-  }
-}
+### shell.execute 执行Shell命令
+```json
+{ "action": "shell.execute", "params": { "command": "dir", "timeout": 30 } }
 ```
 
-参数说明：
-- `agentId`：客户端ID
-- `path`：文件路径（必填）
-- `maxSize`：最大读取字节数，默认 10485760（10MB）
-- `encoding`：字符编码（可选，默认 utf-8）
-
-返回字段说明：
-- `content`：文件内容（文本直接返回，二进制返回Base64编码）
-- `is_base64`：是否为Base64编码
-- `size_bytes`：文件大小
-- `truncated`：是否被截断
-
-### 写入文件
-
-在远程设备上写入文件内容：
-
-```
-调用: remote_agent.file_write
-参数: {
-  "agentId": "台式机",
-  "path": "C:\\test\\output.txt",
-  "content": "要写入的内容",
-  "append": false,
-  "encoding": "utf-8"
-}
-
-返回:
-{
-  "success": true,
-  "data": {
-    "bytes_written": 1024
-  }
-}
+### process.list 列出进程
+```json
+{ "action": "process.list", "params": {} }
 ```
 
-参数说明：
-- `agentId`：客户端ID
-- `path`：文件路径（必填）
-- `content`：写入内容（必填）
-- `append`：是否追加模式，默认 false
-- `encoding`：字符编码（可选，默认 utf-8）
+### process.stop 停止进程
+```json
+{ "action": "process.stop", "params": { "pid": 1234, "force": false } }
+```
+
+### software.list 列出已安装软件
+```json
+{ "action": "software.list", "params": {} }
+```
+
+### software.search 搜索软件
+```json
+{ "action": "software.search", "params": { "query": "chrome" } }
+```
+
+### software.install 安装软件
+```json
+{ "action": "software.install", "params": { "package": "Google Chrome", "silent": true } }
+```
+
+### software.uninstall 卸载软件
+```json
+{ "action": "software.uninstall", "params": { "package": "Google Chrome" } }
+```
+
+### env.list 列出环境变量
+```json
+{ "action": "env.list", "params": { "scope": "user" } }
+```
+
+### env.get 获取环境变量
+```json
+{ "action": "env.get", "params": { "name": "PATH", "scope": "user" } }
+```
+
+### env.set 设置环境变量
+```json
+{ "action": "env.set", "params": { "name": "TEST", "value": "123", "scope": "user" } }
+```
+
+### env.delete 删除环境变量
+```json
+{ "action": "env.delete", "params": { "name": "TEST", "scope": "user" } }
+```
+
+### file.list 列出文件
+```json
+{ "action": "file.list", "params": { "path": "C:\\Users" } }
+```
+
+### file.read 读取文件内容
+```json
+{ "action": "file.read", "params": { "path": "C:\\test\\file.txt" } }
+```
+
+### file.write 写入文件内容
+```json
+{ "action": "file.write", "params": { "path": "C:\\test\\file.txt", "content": "hello" } }
+```
+
+### config.get 获取配置
+```json
+{ "action": "config.get", "params": { "path": "HKEY_CURRENT_USER\\Software\\Microsoft" } }
+```
+
+### config.set 设置配置
+```json
+{ "action": "config.set", "params": { "path": "HKEY_CURRENT_USER\\Test", "value": "123" } }
+```
+
+### system.reboot 重启系统
+```json
+{ "action": "system.reboot", "params": {} }
+```
 
 ---
 
